@@ -35,4 +35,4 @@ Permite escribir, dar formato, previsualizar y exportar documentos de manera rá
 
 ## 📸 Captura de Pantalla
 
-![Vista del Editor](ruta/a/imagen.png)
+![Vista del Editor](Captura.XocoMarkdown.JPG)
