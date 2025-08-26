@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor Markdown Profesional</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f9fafb; height: 100vh; overflow: hidden; }
+        .editor-container { display: flex; flex-direction: column; height: 100vh; background-color: white; }
+        .toolbar { background: white; border-bottom: 1px solid #e5e7eb; padding: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .toolbar-group { display: flex; align-items: center; gap: 4px; }
+        .toolbar-btn { padding: 8px; border: none; background: transparent; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #374151; transition: background-color 0.2s; width: 38px; height: 36px; }
+        .toolbar-btn:hover { background-color: #f3f4f6; }
+        .toolbar-btn:disabled { color: #d1d5db; cursor: not-allowed; }
+        .heading-label { font-size: 14px; font-weight: 600; line-height: 1; color: #4b5563; }
+        .toolbar-separator { width: 1px; height: 24px; background-color: #e5e7eb; margin: 0 8px; }
+        .view-toggle { display: flex; background-color: #f3f4f6; border-radius: 8px; padding: 4px; }
+        .view-btn { padding: 6px 12px; border: none; background: transparent; cursor: pointer; border-radius: 6px; font-size: 13px; font-weight: 500; color: #4b5563; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .view-btn.active { background: white; color: #111827; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
+        .main-content { flex: 1; display: flex; overflow: hidden; }
+        .panel { display: flex; flex-direction: column; }
+        .panel-header { background-color: #f9fafb; padding: 8px 16px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; font-weight: 500; text-transform: uppercase; }
+        .editor-panel { width: 50%; border-right: 1px solid #e5e7eb; } .editor-panel.full-width { width: 100%; border-right: none; }
+        .preview-panel { width: 50%; background: white; } .preview-panel.full-width { width: 100%; }
+        .markdown-input { flex: 1; padding: 20px; border: none; outline: none; font-family: 'Menlo', 'Fira Code', 'Monaco', monospace; font-size: 14px; line-height: 1.6; resize: none; tab-size: 2; background-color: #ffffff; }
+        .preview-content { flex: 1; padding: 20px; overflow-y: auto; line-height: 1.7; color: #374151; }
+        .preview-content img, .preview-content iframe { max-width: 100%; border-radius: 8px; margin-bottom: 1em; }
+        .preview-content table { border-collapse: collapse; margin-bottom: 1em; width: 100%; }
+        .preview-content th, .preview-content td { border: 1px solid #d1d5db; padding: 8px; }
+        .preview-content th { background-color: #f9fafb; }
+        .preview-content mark { background-color: #fef08a; padding: 0.1em 0.2em; border-radius: 3px; }
+        .status-bar { background-color: white; padding: 6px 16px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; }
+        .preview-content h1, .preview-content h2, .preview-content h3, .preview-content h4 { font-weight: 600; color: #111827; margin-top: 1.2em; margin-bottom: 0.6em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+        .preview-content h1 { font-size: 2em; } .preview-content h2 { font-size: 1.5em; } .preview-content h3 { font-size: 1.2em; border-bottom: none; } .preview-content h4 { font-size: 1em; border-bottom: none; }
+        .preview-content p { margin-bottom: 1em; } .preview-content a { color: #2563eb; text-decoration: none; } .preview-content a:hover { text-decoration: underline; }
+        .preview-content code { background-color: #e5e7eb; color: #be123c; padding: 0.2em 0.4em; border-radius: 4px; font-family: 'Menlo', 'Fira Code', monospace; font-size: 0.9em; }
+        .preview-content pre { background-color: #1f2937; color: #e5e7eb; padding: 1em; border-radius: 8px; overflow-x: auto; margin-bottom: 1em; font-size: 0.9em; }
+        .preview-content pre code { background: none; color: inherit; padding: 0; border: none; }
+        .preview-content blockquote { border-left: 4px solid #d1d5db; padding-left: 1em; color: #4b5563; margin: 0 0 1em 0; }
+        .preview-content ul, .preview-content ol { margin-bottom: 1em; padding-left: 2em; }
+        .preview-content hr { margin: 2em 0; border: none; border-top: 2px solid #e5e7eb; }
+        .preview-content .task-list-item { list-style-type: none; } .preview-content .task-list-item-checkbox { margin-right: 0.5em; }
+        .empty-state { color: #9ca3af; } .hidden { display: none !important; }
+        .icon { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .view-btn .icon { width: 16px; height: 16px; }
+    </style>
+</head>
+<body>
+    <div id="editorContainer" class="editor-container">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <!-- ACCIONES -->
+                <button class="toolbar-btn" onclick="triggerUndo()" title="Deshacer (Ctrl+Z)"><svg class="icon" viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg></button>
+                <button class="toolbar-btn" onclick="triggerRedo()" title="Rehacer (Ctrl+Y)"><svg class="icon" viewBox="0 0 24 24"><polyline points="15 14 20 9 15 4"></polyline><path d="M4 20v-7a4 4 0 0 1 4-4h12"></path></svg></button>
+                <div class="toolbar-separator"></div>
+                <!-- ENCABEZADOS -->
+                <button class="toolbar-btn" onclick="insertH1()" title="Encabezado 1"><span class="heading-label">H1</span></button>
+                <button class="toolbar-btn" onclick="insertH2()" title="Encabezado 2"><span class="heading-label">H2</span></button>
+                <button class="toolbar-btn" onclick="insertH3()" title="Encabezado 3"><span class="heading-label">H3</span></button>
+                <div class="toolbar-separator"></div>
+                <!-- ESTILOS -->
+                <button class="toolbar-btn" onclick="insertBold()" title="Negrita"><svg class="icon" viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/></svg></button>
+                <button class="toolbar-btn" onclick="insertItalic()" title="Cursiva"><svg class="icon" viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg></button>
+                <button class="toolbar-btn" onclick="insertStrikethrough()" title="Tachado"><svg class="icon" viewBox="0 0 24 24"><path d="M16 4H8a4 4 0 0 0 0 8h8M4 12h16M16 20H8a4 4 0 0 1 0-8h8"/></svg></button>
+                <button class="toolbar-btn" onclick="insertHighlight()" title="Resaltado"><svg class="icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></button>
+                <div class="toolbar-separator"></div>
+                <!-- BLOQUES -->
+                <button class="toolbar-btn" onclick="insertLink()" title="Enlace"><svg class="icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+                <button class="toolbar-btn" onclick="insertQuote()" title="Cita"><svg class="icon" viewBox="0 0 24 24"><path d="M10 3L6 8l4 5M18 3l-4 5 4 5"/></svg></button>
+                <button class="toolbar-btn" onclick="insertList()" title="Lista"><svg class="icon" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
+                <button class="toolbar-btn" onclick="insertOrderedList()" title="Lista Numerada"><svg class="icon" viewBox="0 0 24 24"><path d="M6 10V4.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 .5.5v15a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1-.5-.5V14M11 6h10m-10 6h10m-10 6h10"/></svg></button>
+                <button class="toolbar-btn" onclick="insertTaskList()" title="Lista de Tareas"><svg class="icon" viewBox="0 0 24 24"><path d="M9 8h10M9 16h10M5.5 8.5l-1-1-1 1M5.5 16.5l-1-1-1 1"/></svg></button>
+                <button class="toolbar-btn" onclick="insertTable()" title="Tabla"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></button>
+                <button class="toolbar-btn" onclick="insertHorizontalRule()" title="Línea Horizontal"><svg class="icon" viewBox="0 0 24 24"><line x1="22" y1="12" x2="2" y2="12"/></svg></button>
+                <div class="toolbar-separator"></div>
+                <!-- INCRUSTADOS -->
+                <button class="toolbar-btn" onclick="insertImage()" title="Imagen"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><line x1="21" y1="15" x2="15" y2="9"/><line x1="6" y1="21" x2="12" y2="15"/></svg></button>
+                <button class="toolbar-btn" onclick="insertCodeBlock()" title="Bloque de código"><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2" ry="2" /><path d="m9 9 3 3L9 15"/></svg></button>
+                <button class="toolbar-btn" onclick="insertVideo()" title="Insertar Video"><svg class="icon" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"></path></svg></button>
+            </div>
+            <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="loadExampleContent()" title="Cargar Ejemplo"><svg class="icon" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.7.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg></button>
+                <button class="toolbar-btn" onclick="copyMarkdown()" title="Copiar"><svg class="icon" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+                <button class="toolbar-btn" onclick="downloadMarkdown()" title="Descargar"><svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                <button class="toolbar-btn" onclick="clearEditor()" title="Limpiar Editor"><svg class="icon" viewBox="0 0 24 24"><path d="M20 5H4a1 1 0 0 0-1 1v2h18V6a1 1 0 0 0-1-1zM3 10v9a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-9H3z"/></svg></button>
+                <button class="toolbar-btn" onclick="toggleFullscreen()" title="Pantalla Completa"><svg class="icon" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
+                <div class="toolbar-separator"></div>
+                <div class="view-toggle">
+                    <button class="view-btn" onclick="setViewMode('edit')" data-view="edit">Editar</button>
+                    <button class="view-btn active" onclick="setViewMode('split')" data-view="split">Dividida</button>
+                    <button class="view-btn" onclick="setViewMode('preview')" data-view="preview">Vista</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="editorPanel" class="panel editor-panel"><textarea id="markdownInput" class="markdown-input" placeholder="Escribe tu markdown aquí..."></textarea></div>
+            <div id="previewPanel" class="panel preview-panel"><div id="previewContent" class="preview-content"></div></div>
+        </div>
+
+        <div class="status-bar">
+            <span>Líneas: <span id="lineCount">0</span></span>
+            <span>Caracteres: <span id="charCount">0</span></span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/showdown/dist/showdown.min.js"></script>
+    <script>
+        const editorContainer = document.getElementById('editorContainer');
+        const markdownInput = document.getElementById('markdownInput');
+        const previewContent = document.getElementById('previewContent');
+        const editorPanel = document.getElementById('editorPanel');
+        const previewPanel = document.getElementById('previewPanel');
+        const lineCount = document.getElementById('lineCount');
+        const charCount = document.getElementById('charCount');
+
+        const initialMarkdown = `Bienvenido al editor. ¡Usa el botón de la bombilla (💡) en la barra de herramientas para cargar un ejemplo completo!`;
+        
+        const exampleMarkdown = `# Plantilla de Demostración de Markdown
+
+Este documento muestra todas las características de este editor.
+
+---
+
+## Estilos de Texto
+Aquí tienes los estilos de texto básicos:
+
+- **Texto en negrita**
+- *Texto en cursiva*
+- ~~Texto tachado~~
+- <mark>Texto resaltado</mark>
+- \`código en línea\`
+
+> Esto es una cita en bloque. Se utiliza para destacar texto o citas de otras fuentes.
+
+## Listas
+Puedes crear diferentes tipos de listas.
+
+### Lista Ordenada
+1. Primer elemento
+2. Segundo elemento
+3. Tercer elemento
+
+### Lista Desordenada
+- Un elemento con viñeta
+- Otro elemento
+- Y uno más
+
+### Lista de Tareas
+- [x] Tarea completada
+- [ ] Tarea pendiente
+- [ ] Otra tarea por hacer
+
+## Tablas
+Crear tablas es fácil:
+
+| Encabezado 1 | Encabezado 2 | Centrado |
+| :--- | :--- | :---: |
+| Celda A1 | Celda B1 | C1 |
+| Celda A2 | Celda B2 | C2 |
+
+## Bloques de Código
+Perfecto para mostrar fragmentos de código con resaltado de sintaxis.
+
+\`\`\`javascript
+function saludo(nombre) {
+  // Un comentario en el código
+  console.log(\`¡Hola, \${nombre}!\`);
+}
+
+saludo('Mundo');
+\`\`\`
+
+## Incrustados
+Puedes añadir enlaces, imágenes y vídeos.
+
+- Un [enlace a Google](https://www.google.com).
+- Una imagen de ejemplo:
+![Texto alternativo de la imagen](https://via.placeholder.com/468x150.png/1f2937/ffffff?text=Imagen+de+Ejemplo)
+
+- Un vídeo de YouTube incrustado:
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+`;
+
+        const converter = new showdown.Converter({
+            tables: true,
+            strikethrough: true,
+            tasklists: true,
+            simpleLineBreaks: true,
+            ghCompatibleHeaderId: true,
+            openLinksInNewWindow: true
+        });
+        converter.setFlavor('github');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            markdownInput.value = initialMarkdown;
+            updatePreview();
+            updateStats();
+            setViewMode('split');
+            markdownInput.addEventListener('input', () => {
+                updatePreview();
+                updateStats();
+            });
+        });
+        
+        function updatePreview() {
+            const md = markdownInput.value;
+            if (!md.trim()) {
+                previewContent.innerHTML = '<p class="empty-state">Comienza a escribir...</p>';
+                return;
+            }
+            previewContent.innerHTML = converter.makeHtml(md);
+        }
+
+        function updateStats() {
+            const text = markdownInput.value;
+            lineCount.textContent = text.split('\n').length;
+            charCount.textContent = text.length;
+        }
+
+        function insertText(before, after = '', options = {}) {
+            const { newLine = false } = options;
+            const start = markdownInput.selectionStart;
+            const end = markdownInput.selectionEnd;
+            const selectedText = markdownInput.value.substring(start, end);
+            
+            let prefix = before;
+            if (newLine && start > 0 && markdownInput.value.substring(start - 2, start) !== '\n\n' && markdownInput.value[start-1] !== '\n') {
+                prefix = '\n\n' + prefix;
+            }
+            
+            markdownInput.value = `${markdownInput.value.substring(0, start)}${prefix}${selectedText}${after}${markdownInput.value.substring(end)}`;
+            markdownInput.focus();
+            const newCursorPos = start + prefix.length + selectedText.length;
+            markdownInput.setSelectionRange(newCursorPos, newCursorPos);
+            updatePreview();
+            updateStats();
+        }
+
+        // --- Funciones de botones ---
+        function insertH1() { insertText('# ', '', { newLine: true }); }
+        function insertH2() { insertText('## ', '', { newLine: true }); }
+        function insertH3() { insertText('### ', '', { newLine: true }); }
+        function insertBold() { insertText('**', '**'); }
+        function insertItalic() { insertText('*', '*'); }
+        function insertStrikethrough() { insertText('~~', '~~'); }
+        function insertHighlight() { insertText('<mark>', '</mark>'); }
+        function insertCode() { insertText('`', '`'); }
+        function insertList() { insertText('- ', '', { newLine: true }); }
+        function insertOrderedList() { insertText('1. ', '', { newLine: true }); }
+        function insertTaskList() { insertText('- [ ] ', '', { newLine: true }); }
+        function insertQuote() { insertText('> ', '', { newLine: true }); }
+        function insertLink() { insertText('[', '](https://)'); }
+        function insertImage() { insertText('![alt text](', ')', { newLine: true }); }
+        function insertCodeBlock() { insertText('\n```javascript\n', '\n```\n'); }
+        function insertHorizontalRule() { insertText('\n---\n', '', { newLine: true }); }
+        function insertTable() {
+            const tableTemplate = `| Encabezado 1 | Encabezado 2 |\n|---|---|\n| Celda 1 | Celda 2 |\n| Celda 3 | Celda 4 |`;
+            insertText(tableTemplate, '', { newLine: true });
+        }
+        function insertVideo() {
+            const videoEmbedCode = '<iframe width="560" height="315" src="https://www.youtube.com/embed/VIDEO_ID" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+            insertText(videoEmbedCode, '', { newLine: true });
+        }
+        
+        // --- Funciones de Productividad ---
+        function triggerUndo() { document.execCommand('undo', false, null); markdownInput.focus(); }
+        function triggerRedo() { document.execCommand('redo', false, null); markdownInput.focus(); }
+        
+        function copyMarkdown() { navigator.clipboard.writeText(markdownInput.value).then(() => alert('¡Markdown copiado!')); }
+
+        function loadExampleContent() {
+            if (confirm('Esto reemplazará el contenido actual del editor. ¿Deseas continuar?')) {
+                markdownInput.value = exampleMarkdown;
+                updatePreview();
+                updateStats();
+                markdownInput.focus();
+            }
+        }
+
+        function clearEditor() {
+            if (confirm('¿Estás seguro de que quieres borrar todo el contenido?')) {
+                markdownInput.value = '';
+                updatePreview();
+                updateStats();
+                markdownInput.focus();
+            }
+        }
+
+        function downloadMarkdown() {
+            const blob = new Blob([markdownInput.value], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = 'documento.md';
+            a.click(); URL.revokeObjectURL(url);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                editorContainer.requestFullscreen().catch(err => {
+                    alert(`Error al activar pantalla completa: ${err.message} (${err.name})`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+        
+        function setViewMode(mode) {
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-view="${mode}"]`).classList.add('active');
+            editorPanel.classList.toggle('hidden', mode === 'preview');
+            previewPanel.classList.toggle('hidden', mode === 'edit');
+            editorPanel.classList.toggle('full-width', mode === 'edit');
+            previewPanel.classList.toggle('full-width', mode === 'preview');
+        }
+
+        markdownInput.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'b') { e.preventDefault(); insertBold(); }
+                if (e.key === 'i') { e.preventDefault(); insertItalic(); }
+            }
+            if (e.key === 'Tab') { e.preventDefault(); insertText('  '); }
+        });
+    </script>
+</body>
+</html>
